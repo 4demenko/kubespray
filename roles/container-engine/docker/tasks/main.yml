@@ -260,7 +260,7 @@
     mode: 0700
   when:
     - docker_k8s_config_json is defined
-    - docker_k8s_config_json | lenth > 0
+    - docker_k8s_config_json | length > 0
 
 - name: Copy docker client config.json into root home
   copy:
@@ -271,7 +271,7 @@
     group: "root"
   when:
     - docker_k8s_config_json is defined
-    - docker_k8s_config_json | lenth > 0
+    - docker_k8s_config_json | length > 0
 ##################################################
 
 - name: ensure docker service is started and enabled
