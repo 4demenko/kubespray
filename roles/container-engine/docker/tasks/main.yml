@@ -259,19 +259,19 @@
     state: directory
     mode: 0700
   when:
-    - docker_k8s_config_json is defined
-    - docker_k8s_config_json | length > 0
+    - k8s_docker_config_json is defined
+    - k8s_docker_config_json | length > 0
 
 - name: Copy docker client config.json into root home
   copy:
-    content: "{{ docker_k8s_config_json | to_nice_json }}"
+    content: "{{ k8s_docker_config_json | to_nice_json }}"
     dest: "/root/.docker/config.json"
     mode: 0600
     owner: "root"
     group: "root"
   when:
-    - docker_k8s_config_json is defined
-    - docker_k8s_config_json | length > 0
+    - k8s_docker_config_json is defined
+    - k8s_docker_config_json | length > 0
 ##################################################
 
 - name: ensure docker service is started and enabled
