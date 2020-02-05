@@ -47,91 +47,97 @@
   tags:
     - facts
 
+
 - import_tasks: pre-upgrade.yml
 
-- name: ensure docker-ce repository public key is installed
-  action: "{{ docker_repo_key_info.pkg_key }}"
-  args:
-    id: "{{ item }}"
-    url: "{{ docker_repo_key_info.url }}"
-    state: present
-  register: keyserver_task_result
-  until: keyserver_task_result is succeeded
-  retries: 4
-  delay: "{{ retry_stagger | d(3) }}"
-  with_items: "{{ docker_repo_key_info.repo_keys }}"
-  when: not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic)
+################################################################################
+- name: "FIX: Configure repositories"
+  block:
+    - name: ensure docker-ce repository public key is installed
+      action: "{{ docker_repo_key_info.pkg_key }}"
+      args:
+        id: "{{ item }}"
+        url: "{{ docker_repo_key_info.url }}"
+        state: present
+      register: keyserver_task_result
+      until: keyserver_task_result is succeeded
+      retries: 4
+      delay: "{{ retry_stagger | d(3) }}"
+      with_items: "{{ docker_repo_key_info.repo_keys }}"
+      when: not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic)
 
-- name: ensure docker-ce repository is enabled
-  action: "{{ docker_repo_info.pkg_repo }}"
-  args:
-    repo: "{{ item }}"
-    state: present
-  with_items: "{{ docker_repo_info.repos }}"
-  when: not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic) and (docker_repo_info.repos|length > 0)
+    - name: ensure docker-ce repository is enabled
+      action: "{{ docker_repo_info.pkg_repo }}"
+      args:
+        repo: "{{ item }}"
+        state: present
+      with_items: "{{ docker_repo_info.repos }}"
+      when: not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic) and (docker_repo_info.repos|length > 0)
 
-- name: ensure docker-engine repository public key is installed
-  action: "{{ dockerproject_repo_key_info.pkg_key }}"
-  args:
-    id: "{{ item }}"
-    url: "{{ dockerproject_repo_key_info.url }}"
-    state: present
-  register: keyserver_task_result
-  until: keyserver_task_result is succeeded
-  retries: 4
-  delay: "{{ retry_stagger | d(3) }}"
-  with_items: "{{ dockerproject_repo_key_info.repo_keys }}"
-  when:
-    - not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic)
-    - use_docker_engine is defined and use_docker_engine
+    - name: ensure docker-engine repository public key is installed
+      action: "{{ dockerproject_repo_key_info.pkg_key }}"
+      args:
+        id: "{{ item }}"
+        url: "{{ dockerproject_repo_key_info.url }}"
+        state: present
+      register: keyserver_task_result
+      until: keyserver_task_result is succeeded
+      retries: 4
+      delay: "{{ retry_stagger | d(3) }}"
+      with_items: "{{ dockerproject_repo_key_info.repo_keys }}"
+      when:
+        - not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic)
+        - use_docker_engine is defined and use_docker_engine
 
-- name: ensure docker-engine repository is enabled
-  action: "{{ dockerproject_repo_info.pkg_repo }}"
-  args:
-    repo: "{{ item }}"
-    state: present
-  with_items: "{{ dockerproject_repo_info.repos }}"
-  when:
-    - use_docker_engine is defined and use_docker_engine
-    - not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic) and (dockerproject_repo_info.repos|length > 0)
+    - name: ensure docker-engine repository is enabled
+      action: "{{ dockerproject_repo_info.pkg_repo }}"
+      args:
+        repo: "{{ item }}"
+        state: present
+      with_items: "{{ dockerproject_repo_info.repos }}"
+      when:
+        - use_docker_engine is defined and use_docker_engine
+        - not (ansible_os_family in ["CoreOS", "Coreos", "Container Linux by CoreOS", "RedHat", "Suse", "ClearLinux"] or is_atomic) and (dockerproject_repo_info.repos|length > 0)
 
-- name: Configure docker repository on Fedora
-  template:
-    src: "fedora_docker.repo.j2"
-    dest: "{{ yum_repo_dir }}/docker.repo"
-  when: ansible_distribution == "Fedora" and not is_atomic
+    - name: Configure docker repository on Fedora
+      template:
+        src: "fedora_docker.repo.j2"
+        dest: "{{ yum_repo_dir }}/docker.repo"
+      when: ansible_distribution == "Fedora" and not is_atomic
 
-- name: Configure docker repository on RedHat/CentOS/Oracle Linux
-  yum_repository:
-    name: docker-ce
-    baseurl: "{{ dockerproject_rh_repo_base_url }}"
-    description: "Docker CE Stable - $basearch"
-    gpgcheck: yes
-    gpgkey: "{{ dockerproject_rh_repo_gpgkey }}"
-    keepcache: "{{ docker_rpm_keepcache | default('1') }}"
-    proxy: " {{ http_proxy | default('_none_') }}"
-  when: ansible_distribution in ["CentOS","RedHat","OracleLinux"] and not is_atomic
+    - name: Configure docker repository on RedHat/CentOS/Oracle Linux
+      yum_repository:
+        name: docker-ce
+        baseurl: "{{ dockerproject_rh_repo_base_url }}"
+        description: "Docker CE Stable - $basearch"
+        gpgcheck: yes
+        gpgkey: "{{ dockerproject_rh_repo_gpgkey }}"
+        keepcache: "{{ docker_rpm_keepcache | default('1') }}"
+        proxy: " {{ http_proxy | default('_none_') }}"
+      when: ansible_distribution in ["CentOS","RedHat","OracleLinux"] and not is_atomic
 
-- name: check if container-selinux is available
-  yum:
-    list: "container-selinux"
-  register: yum_result
-  when: ansible_distribution in ["CentOS","RedHat"] and not is_atomic
+    - name: check if container-selinux is available
+      yum:
+        list: "container-selinux"
+      register: yum_result
+      when: ansible_distribution in ["CentOS","RedHat"] and not is_atomic
 
-- name: Configure extras repository on RedHat/CentOS if container-selinux is not available in current repos
-  yum_repository:
-    name: extras
-    description: "CentOS-7 - Extras"
-    state: present
-    baseurl: "{{ extras_rh_repo_base_url }}"
-    file: "extras"
-    gpgcheck: yes
-    gpgkey: "{{ extras_rh_repo_gpgkey }}"
-    keepcache: "{{ docker_rpm_keepcache | default('1') }}"
-    proxy: " {{ http_proxy | default('_none_') }}"
-  when:
-    - ansible_distribution in ["CentOS","RedHat"] and not is_atomic
-    - yum_result.results | length == 0
+    - name: Configure extras repository on RedHat/CentOS if container-selinux is not available in current repos
+      yum_repository:
+        name: extras
+        description: "CentOS-7 - Extras"
+        state: present
+        baseurl: "{{ extras_rh_repo_base_url }}"
+        file: "extras"
+        gpgcheck: yes
+        gpgkey: "{{ extras_rh_repo_gpgkey }}"
+        keepcache: "{{ docker_rpm_keepcache | default('1') }}"
+        proxy: " {{ http_proxy | default('_none_') }}"
+      when:
+        - ansible_distribution in ["CentOS","RedHat"] and not is_atomic
+        - yum_result.results | length == 0
+  when: use_custom_repositories | bool == false
+#######################################################################################################
 
 - name: Copy yum.conf for editing
   copy:
